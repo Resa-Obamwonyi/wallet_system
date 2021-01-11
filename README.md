@@ -2,6 +2,21 @@
 A wallet system built with django and contanerized with docker. 
 This system would only be accessible to authenticated users.
 
+![Wallet Application](https://github.com/Resa-Obamwonyi/wallet_system/workflows/Cinch%20API/badge.svg?branch=main)
+
+## Technologies
+
+* [Python 3.9](https://python.org) : Base programming language for development
+* [Bash Scripting](https://www.codecademy.com/learn/learn-the-command-line/modules/bash-scripting) : Create convenient script for easy development experience
+* [PostgreSQL](https://www.postgresql.org/) : Application relational databases for development, staging and production environments
+* [Django Framework](https://www.djangoproject.com/) : Development framework used for the application
+* [Django Rest Framework](https://www.django-rest-framework.org/) : Provides API development tools for easy API development
+* [Github Actions](https://docs.github.com/en/free-pro-team@latest/actions) : Continuous Integration and Deployment
+* [Docker Engine and Docker Compose](https://www.docker.com/) : Containerization of the application and services orchestration
+
+## Description
+A wallet system for a product used in multiple countries.
+
 ### User types
 #### Noob
 - Can only have a wallet in a single currency selected at signup (main).
@@ -28,11 +43,7 @@ This system would only be accessible to authenticated users.
 
 ### How to Use and Test this Application
 
+### Link to API Documentation
 
-### Technologies Used
-- Django
-- Docker
-- Github Actions
-- Postgresql DB
 
 ### Comments
