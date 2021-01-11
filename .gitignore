@@ -1,0 +1,14 @@
+# [Misc]
+.vscode
+.DS_Store
+tmp/
+.idea/
+.env
+
+# [Python]
+*.pyc
+venv/
+__pycache__/
+
+# [Project]
+
