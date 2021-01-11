@@ -1,0 +1,24 @@
+name: Wallet System
+
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Startup Services
+        run: docker-compose -f docker-compose.yml up -d
+      - name: Await Services
+        uses: actions/setup-python@v2
+        with:
+          time: '10s'
+      - name: Show Services Logs
+        run: docker-compose -f docker-compose.yml up logs
+      - name: Run Migrations
+        run: bin/exec migrate
+      - name: Run Tests
+        run: bin/exec test --noinput
+      - name: Shutdown Services
+        run: docker-compose down

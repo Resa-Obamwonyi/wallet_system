@@ -2,7 +2,7 @@
 A wallet system built with django and contanerized with docker. 
 This system would only be accessible to authenticated users.
 
-![Wallet Application](https://github.com/Resa-Obamwonyi/wallet_system/workflows/Cinch%20API/badge.svg?branch=main)
+[![Wallet Application](https://github.com/Resa-Obamwonyi/wallet_system/workflows/Wallets%20System/badge.svg)](https://github.com/Resa-Obamwonyi/wallet_system/actions)
 
 ## Technologies
 
