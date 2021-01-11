@@ -32,21 +32,20 @@ jobs:
           pip install -r requirements.txt
       - name: Run migrations
         env:
-          SECRET_KEY: $${{ secrets.SECRET_KEY }}
-          NAME: $${{ secrets.NAME }}
-          USER: $${{ secrets.USER }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          NAME: ${{ secrets.NAME }}
+          USER: ${{ secrets.USER }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          HOST: $${{ secrets.HOST }}
-          PORT: $${{ secrets.PORT }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
         run: python manage.py migrate
       - name: Run tests
-        env:
-          SECRET_KEY: $${{ secrets.SECRET_KEY }}
-          NAME: $${{ secrets.NAME }}
-          USER: $${{ secrets.USER }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          NAME: ${{ secrets.NAME }}
+          USER: ${{ secrets.USER }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          HOST: $${{ secrets.HOST }}
-          PORT: $${{ secrets.PORT }}
+          HOST: ${{ secrets.HOST }}
+          PORT: ${{ secrets.PORT }}
         run: python manage.py test
       - name: Shutdown Services
         run: docker-compose down
