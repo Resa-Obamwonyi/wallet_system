@@ -10,12 +10,14 @@ class User(AbstractBaseUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     firstname = models.CharField(max_length=100, null=False)
     lastname = models.CharField(max_length=100, null=False)
-    email = models.CharField(max_length=255, null=False)
+    email = models.CharField(max_length=255, null=False, unique=True)
     password = models.CharField(max_length=255)
     is_admin = models.BooleanField(default=False)
     is_superadmin = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now=False, default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    USERNAME_FIELD = 'email'
 
 
 class Elite(models.Model):
