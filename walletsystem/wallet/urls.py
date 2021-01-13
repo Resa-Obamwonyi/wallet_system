@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import Register, Login
+from .views import Register, Login, Wallets
 
 
 app_name = "wallet_app"
@@ -7,5 +7,7 @@ app_name = "wallet_app"
 urlpatterns = [
     path('register', Register.as_view()),
     path('login', Login.as_view()),
+    path('add_wallet', Wallets.as_view()),
+    path('get_wallet', Wallets.as_view()),
 ]
 

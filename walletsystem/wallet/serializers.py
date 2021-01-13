@@ -23,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(errors)
 
         # hash password
-        # data['password'] = make_password(data.get('password'))
+        data['password'] = make_password(data.get('password'))
         saved_data = {
             'firstname': data['firstname'],
             'lastname': data['lastname'],

@@ -20,7 +20,7 @@ class Register(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-    # try:
+        # try:
         with transaction.atomic():
 
             if not (request.data.get('firstname', '') or len(request.data.get('firstname', '') > 3)):
@@ -131,5 +131,55 @@ class Login(APIView):
 
         except Exception as err:
             return Response(dict(error=err), status=status.HTTP_400_BAD_REQUEST)
+
+
+class Wallets(APIView):
+    permission_classes = [IsAuthenticated]
+
+    # Add a wallet for Elite Users
+    def post(self, request):
+        wallet_data = {
+            "currency": request.data["currency"],
+            "balance": 0,
+            "main": False,
+            "user_id": request.user.id
+        }
+
+        # Check if user is an Elite
+        try:
+             Elite.objects.get(user_id=request.user)
+
+        except Exception:
+            return Response(dict(message="You must be an Elite User to create multiple Wallets."),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        wallet_serializer = serializers.WalletSerializer(data=wallet_data)
+
+        if wallet_serializer.is_valid():
+            wallet_serializer.save()
+            return Response(dict(message="Wallet Created Successfully"), status=status.HTTP_201_CREATED)
+        else:
+            return Response(
+                dict(wallet_serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        user = request.user.id
+
+        wallets = Wallet.objects.filter(user_id=user)
+        wallets_record = []
+        for wallet in wallets.all():
+            wallets_record.append(("Currency: "+wallet.currency,"Balance: "+wallet.balance))
+
+        user_account = User.objects.get(id=user)
+        wallet_info = {
+            "Name": user_account.firstname +" "+ user_account.lastname,
+            "Wallets": wallets_record
+        }
+        return Response(
+            wallet_info,
+            status=status.HTTP_200_OK
+        )
+
 
 
