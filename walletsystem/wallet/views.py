@@ -166,14 +166,25 @@ class Wallets(APIView):
     def get(self, request):
         user = request.user.id
 
+        # Get all wallets that belong to the user
         wallets = Wallet.objects.filter(user_id=user)
         wallets_record = []
         for wallet in wallets.all():
             wallets_record.append(("Currency: "+wallet.currency,"Balance: "+wallet.balance))
 
+        # Get user account
         user_account = User.objects.get(id=user)
+
+        # Get wallet type
+        try:
+             wallet_type= Elite.objects.get(user_id=request.user).wallet_type
+
+        except Exception:
+             wallet_type = Noob.objects.get(user_id=request.user).wallet_type
+
         wallet_info = {
             "Name": user_account.firstname +" "+ user_account.lastname,
+            "Wallet Type": wallet_type,
             "Wallets": wallets_record
         }
         return Response(
