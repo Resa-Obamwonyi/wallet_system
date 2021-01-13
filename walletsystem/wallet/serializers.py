@@ -18,11 +18,12 @@ class UserSerializer(serializers.ModelSerializer):
 
         if not email_validation:
             errors['email'] = ['Invalid email']
+
         if len(errors):
             raise serializers.ValidationError(errors)
 
         # hash password
-        data['password'] = make_password(data.get('password'))
+        # data['password'] = make_password(data.get('password'))
         saved_data = {
             'firstname': data['firstname'],
             'lastname': data['lastname'],
