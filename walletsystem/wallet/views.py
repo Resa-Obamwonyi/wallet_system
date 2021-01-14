@@ -10,6 +10,7 @@ from rest_framework import status
 from .models import User, Elite, Noob, Wallet
 from . import serializers
 from .lib.lower_strip import strip_and_lower
+from .lib.currency_code import get_currency, get_currency_name
 import requests
 
 
@@ -135,7 +136,7 @@ class Wallets(APIView):
     # Add a wallet for Elite Users
     def post(self, request):
         wallet_data = {
-            "currency": request.data["currency"],
+            "currency": request.data["currency"].upper(),
             "balance": 0,
             "main": False,
             "user_id": request.user.id
@@ -152,7 +153,7 @@ class Wallets(APIView):
         # Get all wallets that belong to the user and check if a wallet in that currency exists
         wallets = Wallet.objects.filter(user_id=request.user)
         for wallet in wallets.all():
-            if wallet.currency.capitalize() == request.data["currency"].capitalize():
+            if wallet.currency == request.data["currency"].upper():
                 return Response(dict(message="You already have a wallet in this currency."),
                                 status=status.HTTP_400_BAD_REQUEST)
 
@@ -204,7 +205,7 @@ class FundWallet(APIView):
     def post(self, request):
         user = request.user
         amount = request.data["amount"]
-        amount_currency = request.data["amount_currency"]
+        amount_currency = request.data["amount_currency"].upper()
 
         try:
             user_type = Elite.objects.get(user_id=user).wallet_type
@@ -219,7 +220,7 @@ class FundWallet(APIView):
             for wallet in wallets.all():
                 if wallet.currency == amount_currency:
                     # sum the balance and the new amount
-                    new_balance = int(wallet.balance) + int(amount)
+                    new_balance = float(wallet.balance) + float(amount)
                     funded_wallet = Wallet.objects.get(currency=amount_currency)
                     funding = {
                         "balance": new_balance
@@ -274,42 +275,51 @@ class FundWallet(APIView):
         # If User is a Noob
         if user_type == 'Noob':
 
+            # get instance of user wallet
             wallet = Wallet.objects.get(user_id=user)
-            access_key = '7aae630d858dc8d3f0129cd593cc511b'
-            main_curr = 'USD'
-            amount_curr = 'EUR'
 
-            # Convert currency to user's base currency
-            addons = {'key1': 'value1', 'key2': 'value2'}
-            url = 'https://data.fixer.io/api/convert?access_key='+access_key+'&from='+amount_curr+'&to='+main_curr+'&amount='+amount
-            print(url)
-            r = requests.get(url)
+            # get main currency from db
+            main_curr = wallet.currency
 
-            # print(r)
-            # # sum the balance and the new amount
-            # new_balance = int(wallet.balance) + int(amount)
-            # funded_wallet = Wallet.objects.get(currency=amount_currency)
-            #
-            # funding = {
-            #     "balance": new_balance
-            # }
-            #
-            # # Update Balance in DB
-            # wallet_serializer = serializers.WalletSerializer(funded_wallet, data=funding, partial=True)
-            # if wallet_serializer.is_valid():
-            #     wallet_serializer.save()
-            #
-            #     response_data = {
-            #         "Message": "Wallet funded successfully",
-            #         "Wallet": wallet.currency,
-            #         "Balance": new_balance
-            #     }
-            #     return Response(
-            #         response_data,
-            #         status=status.HTTP_200_OK
-            #     )
+            # get funding currency
+            fund_curr = get_currency(amount_currency)
 
-        return Response(
-            "Yayyyy",
-            status=status.HTTP_200_OK
-        )
+            # generate conversion string
+            convert_str = fund_curr+"_"+main_curr
+
+            # get conversion rate
+            url = "https://free.currconv.com/api/v7/convert?q="+convert_str+"&compact=ultra&apiKey=066f3d02509dab104f69"
+            response = requests.get(url).json()
+            rate = response[convert_str]
+
+            print(rate)
+
+            # calculate amount to be funded based on conversion rate
+            funding = rate * float(amount)
+
+            # sum the balance and the new amount
+            new_balance = float(wallet.balance) + funding
+
+            funding = {
+                "balance": new_balance
+            }
+
+            # Update Balance in DB
+            wallet_serializer = serializers.WalletSerializer(wallet, data=funding, partial=True)
+            if wallet_serializer.is_valid():
+                wallet_serializer.save()
+
+                response_data = {
+                    "Message": "Wallet funded successfully",
+                    "Wallet": wallet.currency,
+                    "Balance": new_balance
+                }
+                return Response(
+                    response_data,
+                    status=status.HTTP_200_OK
+                )
+
+        # return Response(
+        #     "Yayyyy",
+        #     status=status.HTTP_200_OK
+        # )
