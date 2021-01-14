@@ -7,7 +7,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
 from rest_framework import status
 
-from .models import User, Elite, Noob, Wallet
+from .models import User, Elite, Noob, Wallet, Transactions
 from . import serializers
 from .lib.lower_strip import strip_and_lower
 from .lib.currency_code import get_currency, get_currency_name
@@ -230,6 +230,24 @@ class FundWallet(APIView):
                     if wallet_serializer.is_valid():
                         wallet_serializer.save()
 
+                        # Save transaction to DB
+                        transaction_data = {
+                            "user_id": request.user.id,
+                            "wallet_id": funded_wallet.id,
+                            "transaction_type": "Funding",
+                            "amount": amount,
+                            "currency": amount_currency,
+                            "status": "successful"
+                        }
+
+                        transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                        if transaction_serializer.is_valid():
+                            transaction_serializer.save()
+                        else:
+                            return Response(
+                                dict(transaction_serializer.errors),
+                                status=status.HTTP_400_BAD_REQUEST)
+
                         response_data = {
                             "Message": "Wallet funded successfully",
                             "Wallet": wallet.currency,
@@ -257,6 +275,24 @@ class FundWallet(APIView):
                 wallet_serializer = serializers.WalletSerializer(data=new_wallet)
                 if wallet_serializer.is_valid():
                     wallet_serializer.save()
+
+                    # Save transaction to DB
+                    transaction_data = {
+                        "user_id": request.user.id,
+                        "wallet_id": wallet_serializer.instance.id,
+                        "transaction_type": "Funding",
+                        "amount": amount,
+                        "currency": amount_currency,
+                        "status": "successful"
+                    }
+
+                    transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                    if transaction_serializer.is_valid():
+                        transaction_serializer.save()
+                    else:
+                        return Response(
+                            dict(transaction_serializer.errors),
+                            status=status.HTTP_400_BAD_REQUEST)
 
                     response_data = {
                         "Message": "Wallet Created and funded successfully",
@@ -292,8 +328,6 @@ class FundWallet(APIView):
             response = requests.get(url).json()
             rate = response[convert_str]
 
-            print(rate)
-
             # calculate amount to be funded based on conversion rate
             funding = rate * float(amount)
 
@@ -309,6 +343,24 @@ class FundWallet(APIView):
             if wallet_serializer.is_valid():
                 wallet_serializer.save()
 
+                # Save transaction to DB
+                transaction_data = {
+                    "user_id": request.user.id,
+                    "wallet_id": wallet_serializer.instance.id,
+                    "transaction_type": "Funding",
+                    "amount": amount,
+                    "currency": amount_currency,
+                    "status": "successful"
+                }
+
+                transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                if transaction_serializer.is_valid():
+                    transaction_serializer.save()
+                else:
+                    return Response(
+                        dict(transaction_serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST)
+
                 response_data = {
                     "Message": "Wallet funded successfully",
                     "Wallet": wallet.currency,
@@ -319,7 +371,39 @@ class FundWallet(APIView):
                     status=status.HTTP_200_OK
                 )
 
-        # return Response(
-        #     "Yayyyy",
-        #     status=status.HTTP_200_OK
-        # )
+
+# Get all transactions that belong to an Account
+class TransactionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    # Get all transactions that belong to an Account
+    def get(self, request):
+        user = request.user.id
+
+        # Get all wallets that belong to the user
+        transactions = Transactions.objects.filter(user_id=user)
+        transaction_record = []
+        for transact in transactions.all():
+            transaction_record.append(("Currency: " + transact.currency, "Amount: " + transact.amount,
+                                       "Type: " + transact.transaction_type,
+                                       "Date: " + transact.created_at.strftime("%m/%d/%Y")))
+
+        # Get user account
+        user_account = User.objects.get(id=user)
+
+        # Get wallet type
+        try:
+            wallet_type = Elite.objects.get(user_id=request.user).wallet_type
+
+        except Exception:
+            wallet_type = Noob.objects.get(user_id=request.user).wallet_type
+
+        transaction_info = {
+            "Name": user_account.firstname + " " + user_account.lastname,
+            "Wallet Type": wallet_type,
+            "Transactions": transaction_record
+        }
+        return Response(
+            transaction_info,
+            status=status.HTTP_200_OK
+        )
