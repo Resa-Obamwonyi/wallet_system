@@ -1,26 +1,24 @@
-from django.shortcuts import render
 from django.db import transaction
-from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import check_password
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
-from rest_framework import authentication, permissions
 from rest_framework import status
 
 from .models import User, Elite, Noob, Wallet
 from . import serializers
 from .lib.lower_strip import strip_and_lower
+import requests
 
 
+# Register View
 class Register(APIView):
     # authentication_classes = [authentication.TokenAuthentication]
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # try:
         with transaction.atomic():
 
             if not (request.data.get('firstname', '') or len(request.data.get('firstname', '') > 3)):
@@ -99,11 +97,9 @@ class Register(APIView):
                 return Response(
                     user_serializer.errors,
                     status=status.HTTP_400_BAD_REQUEST)
-        #
-        # except Exception as err:
-        #     return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# Login View
 class Login(APIView):
     permission_classes = [AllowAny]
 
@@ -117,7 +113,6 @@ class Login(APIView):
                     dict(invalid_credential='Please provide both email and password'),
                     status=status.HTTP_400_BAD_REQUEST)
 
-            # hash_password = make_password(password)
             db_user = User.objects.get(email=email)
             user = check_password(password, db_user.password)
 
@@ -133,6 +128,7 @@ class Login(APIView):
             return Response(dict(error=err), status=status.HTTP_400_BAD_REQUEST)
 
 
+# Add Wallet and Get all Wallet View
 class Wallets(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -147,11 +143,18 @@ class Wallets(APIView):
 
         # Check if user is an Elite
         try:
-             Elite.objects.get(user_id=request.user)
+            Elite.objects.get(user_id=request.user)
 
         except Exception:
             return Response(dict(message="You must be an Elite User to create multiple Wallets."),
                             status=status.HTTP_400_BAD_REQUEST)
+
+        # Get all wallets that belong to the user and check if a wallet in that currency exists
+        wallets = Wallet.objects.filter(user_id=request.user)
+        for wallet in wallets.all():
+            if wallet.currency.capitalize() == request.data["currency"].capitalize():
+                return Response(dict(message="You already have a wallet in this currency."),
+                                status=status.HTTP_400_BAD_REQUEST)
 
         wallet_serializer = serializers.WalletSerializer(data=wallet_data)
 
@@ -163,6 +166,7 @@ class Wallets(APIView):
                 dict(wallet_serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST)
 
+    # Get all wallets that belong to a User
     def get(self, request):
         user = request.user.id
 
@@ -170,20 +174,20 @@ class Wallets(APIView):
         wallets = Wallet.objects.filter(user_id=user)
         wallets_record = []
         for wallet in wallets.all():
-            wallets_record.append(("Currency: "+wallet.currency,"Balance: "+wallet.balance))
+            wallets_record.append(("Currency: " + wallet.currency, "Balance: " + wallet.balance))
 
         # Get user account
         user_account = User.objects.get(id=user)
 
         # Get wallet type
         try:
-             wallet_type= Elite.objects.get(user_id=request.user).wallet_type
+            wallet_type = Elite.objects.get(user_id=request.user).wallet_type
 
         except Exception:
-             wallet_type = Noob.objects.get(user_id=request.user).wallet_type
+            wallet_type = Noob.objects.get(user_id=request.user).wallet_type
 
         wallet_info = {
-            "Name": user_account.firstname +" "+ user_account.lastname,
+            "Name": user_account.firstname + " " + user_account.lastname,
             "Wallet Type": wallet_type,
             "Wallets": wallets_record
         }
@@ -193,4 +197,119 @@ class Wallets(APIView):
         )
 
 
+# Fund Wallet View
+class FundWallet(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def post(self, request):
+        user = request.user
+        amount = request.data["amount"]
+        amount_currency = request.data["amount_currency"]
+
+        try:
+            user_type = Elite.objects.get(user_id=user).wallet_type
+        except Exception:
+            user_type = Noob.objects.get(user_id=user).wallet_type
+
+        # If User is an elite
+        if user_type == 'Elite':
+
+            # Get all wallets that belong to the Elite user and check if a wallet in that currency exists
+            wallets = Wallet.objects.filter(user_id=user)
+            for wallet in wallets.all():
+                if wallet.currency == amount_currency:
+                    # sum the balance and the new amount
+                    new_balance = int(wallet.balance) + int(amount)
+                    funded_wallet = Wallet.objects.get(currency=amount_currency)
+                    funding = {
+                        "balance": new_balance
+                    }
+                    # Update Balance in DB
+                    wallet_serializer = serializers.WalletSerializer(funded_wallet, data=funding, partial=True)
+                    if wallet_serializer.is_valid():
+                        wallet_serializer.save()
+
+                        response_data = {
+                            "Message": "Wallet funded successfully",
+                            "Wallet": wallet.currency,
+                            "Balance": new_balance
+                        }
+                        return Response(
+                            response_data,
+                            status=status.HTTP_200_OK
+                        )
+                    else:
+                        return Response(
+                            dict(wallet_serializer.errors),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+                # If currency/wallet does not exist, Create One.
+            else:
+                balance = amount
+                new_wallet = {
+                    "user_id": user.id,
+                    "currency": amount_currency,
+                    "balance": balance,
+                    "main": False
+                }
+
+                wallet_serializer = serializers.WalletSerializer(data=new_wallet)
+                if wallet_serializer.is_valid():
+                    wallet_serializer.save()
+
+                    response_data = {
+                        "Message": "Wallet Created and funded successfully",
+                        "Wallet": amount_currency,
+                        "Balance": balance
+                    }
+                    return Response(
+                        response_data,
+                        status=status.HTTP_200_OK
+                    )
+                else:
+                    return Response(
+                        dict(wallet_serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST)
+
+        # If User is a Noob
+        if user_type == 'Noob':
+
+            wallet = Wallet.objects.get(user_id=user)
+            access_key = '7aae630d858dc8d3f0129cd593cc511b'
+            main_curr = 'USD'
+            amount_curr = 'EUR'
+
+            # Convert currency to user's base currency
+            addons = {'key1': 'value1', 'key2': 'value2'}
+            url = 'https://data.fixer.io/api/convert?access_key='+access_key+'&from='+amount_curr+'&to='+main_curr+'&amount='+amount
+            print(url)
+            r = requests.get(url)
+
+            # print(r)
+            # # sum the balance and the new amount
+            # new_balance = int(wallet.balance) + int(amount)
+            # funded_wallet = Wallet.objects.get(currency=amount_currency)
+            #
+            # funding = {
+            #     "balance": new_balance
+            # }
+            #
+            # # Update Balance in DB
+            # wallet_serializer = serializers.WalletSerializer(funded_wallet, data=funding, partial=True)
+            # if wallet_serializer.is_valid():
+            #     wallet_serializer.save()
+            #
+            #     response_data = {
+            #         "Message": "Wallet funded successfully",
+            #         "Wallet": wallet.currency,
+            #         "Balance": new_balance
+            #     }
+            #     return Response(
+            #         response_data,
+            #         status=status.HTTP_200_OK
+            #     )
+
+        return Response(
+            "Yayyyy",
+            status=status.HTTP_200_OK
+        )
