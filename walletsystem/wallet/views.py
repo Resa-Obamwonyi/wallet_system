@@ -693,20 +693,20 @@ class PendingWithdrawal(APIView):
 
     # Get all transactions that belong to an Account
     def get(self, request):
-
-        # Get all wallets that belong to the user
+        # Get all transactions that are pending
         transactions = Transactions.objects.filter(status="pending")
         transaction_record = []
         for transact in transactions.all():
             transaction_record.append(
                 (
-                 "wallet_id: " + str(transact.wallet_id),
-                 "Currency: " + transact.currency,
-                 "Amount: " + transact.amount,
-                 "Type: " + transact.transaction_type,
-                 "Date: " + transact.created_at.strftime("%m/%d/%Y"),
-                 "Status: " + transact.status
-                 )
+                    "transaction_id: " + str(transact.id),
+                    "wallet_id: " + str(transact.wallet_id),
+                    "Currency: " + transact.currency,
+                    "Amount: " + transact.amount,
+                    "Type: " + transact.transaction_type,
+                    "Date: " + transact.created_at.strftime("%m/%d/%Y"),
+                    "Status: " + transact.status
+                )
             )
 
         transaction_info = {
@@ -720,4 +720,71 @@ class PendingWithdrawal(APIView):
 
 # endpoint for admin to approve withdrawal
 class ApproveWithdrawal(APIView):
-    pass
+    permission_classes = [IsUserAdmin]
+
+    def post(self, request):
+        transaction_id = request.data["transaction_id"]
+
+        # Get the transaction that has the wallet id
+        wallet_transact = Transactions.objects.get(id=transaction_id)
+
+        # Get the wallet that has the wallet id
+        wallet = Wallet.objects.get(id=wallet_transact.wallet_id.id)
+
+        # get main currency from db
+        main_curr = wallet.currency
+
+        # get funding currency
+        withdrawal_curr = wallet_transact.currency
+
+        # generate conversion string
+        convert_str = withdrawal_curr + "_" + main_curr
+
+        # get conversion rate
+        url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
+        response = requests.get(url).json()
+        rate = response[convert_str]
+
+        # calculate amount to be funded based on conversion rate
+        withdrawal = rate * float(wallet_transact.amount)
+
+        # Else subtract the amount from the balance
+        new_balance = float(wallet.balance) - float(withdrawal)
+
+        withdrawal_wallet = {
+            "balance": new_balance
+        }
+
+        # Update Balance in DB
+        wallet_serializer = serializers.WalletSerializer(wallet, data=withdrawal_wallet,
+                                                         partial=True)
+        if wallet_serializer.is_valid():
+            wallet_serializer.save()
+
+            # Update transaction in DB
+            transaction_data = {
+                "status": "successful"
+            }
+
+            response_data = {
+                "wallet_id": wallet.id,
+                "transaction_type": "Withdrawal",
+                "amount": withdrawal,
+                "currency": wallet.currency,
+                "status": "successful"
+            }
+
+            # Update Balance in DB
+            transaction_serializer = serializers.TransactionSerializer(wallet_transact, data=transaction_data,
+                                                                       partial=True)
+            if transaction_serializer.is_valid():
+                transaction_serializer.save()
+            else:
+                return Response(
+                    dict(transaction_serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(
+                response_data,
+                status=status.HTTP_200_OK
+            )
