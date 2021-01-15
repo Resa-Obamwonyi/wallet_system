@@ -32,6 +32,14 @@ class Register(APIView):
                     dict(error='Invalid Lastname, Lastname must be at least three Characters long.'),
                     status=status.HTTP_400_BAD_REQUEST)
 
+            # Check for currency in our Available currencies
+            valid_currency = get_currency(request.data["main_currency"].upper())
+
+            if not valid_currency == request.data["main_currency"].upper():
+                return Response(
+                    dict(error=valid_currency + ", Please try a different currency shortcode."),
+                    status=status.HTTP_400_BAD_REQUEST)
+
             user_data = {
                 "firstname": request.data["firstname"],
                 "lastname": request.data["lastname"],
@@ -67,9 +75,10 @@ class Register(APIView):
                             dict(noob_serializer.errors),
                             status=status.HTTP_400_BAD_REQUEST)
 
+
                 default_wallet = {
                     "user_id": user.id,
-                    "currency": request.data["main_currency"],
+                    "currency": valid_currency,
                     "balance": 0,
                     "main": True
                 }
@@ -265,6 +274,7 @@ class FundWallet(APIView):
                 # If currency/wallet does not exist, Create One.
             else:
                 balance = amount
+
                 new_wallet = {
                     "user_id": user.id,
                     "currency": amount_currency,
@@ -407,3 +417,271 @@ class TransactionView(APIView):
             transaction_info,
             status=status.HTTP_200_OK
         )
+
+
+# Make withdrawal endpoint
+class WithdrawWallet(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+
+        amount = request.data["amount"]
+        currency = request.data["currency"].upper()
+        user = request.user
+
+        try:
+            user_type = Elite.objects.get(user_id=user).wallet_type
+        except Exception:
+            user_type = Noob.objects.get(user_id=user).wallet_type
+
+        # If User is an elite
+        if user_type == 'Elite':
+
+            # For Elite Users with Existing Wallet
+            wallets = Wallet.objects.filter(user_id=user)
+            for wallet in wallets.all():
+                if wallet.currency == currency:
+
+                    # check that the balance is up to the amount to be withdrawn
+                    if float(wallet.balance) < float(amount):
+                        return Response(
+                            dict(errors="Insufficient Funds"),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+                    # subtract the amount from the balance
+                    new_balance = float(wallet.balance) - float(amount)
+                    withdrawn_wallet = Wallet.objects.get(currency=currency)
+                    withdrawal = {
+                        "balance": new_balance
+                    }
+                    # Update Balance in DB
+                    wallet_serializer = serializers.WalletSerializer(withdrawn_wallet, data=withdrawal, partial=True)
+                    if wallet_serializer.is_valid():
+                        wallet_serializer.save()
+
+                        # Save transaction to DB
+                        transaction_data = {
+                            "user_id": request.user.id,
+                            "wallet_id": withdrawn_wallet.id,
+                            "transaction_type": "Withdrawal",
+                            "amount": amount,
+                            "currency": currency,
+                            "status": "successful"
+                        }
+
+                        transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                        if transaction_serializer.is_valid():
+                            transaction_serializer.save()
+                        else:
+                            return Response(
+                                dict(transaction_serializer.errors),
+                                status=status.HTTP_400_BAD_REQUEST)
+
+                        response_data = {
+                            "Message": "Amount Withdrawn successfully",
+                            "Wallet": wallet.currency,
+                            "Balance": new_balance
+                        }
+                        return Response(
+                            response_data,
+                            status=status.HTTP_200_OK
+                        )
+                    else:
+                        return Response(
+                            dict(wallet_serializer.errors),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+            # if currency does not exist as a wallet, convert amount to main currency and withdraw
+            else:
+                wallets = Wallet.objects.filter(user_id=user)
+                for wallet in wallets.all():
+                    if wallet.main:
+                        # get main currency from db
+                        main_curr = wallet.currency
+
+                        # get funding currency
+                        withdrawal_curr = get_currency(currency)
+
+                        # generate conversion string
+                        convert_str = withdrawal_curr + "_" + main_curr
+
+                        # get conversion rate
+                        url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
+                        response = requests.get(url).json()
+                        rate = response[convert_str]
+
+                        # calculate amount to be funded based on conversion rate
+                        withdrawal = rate * float(amount)
+
+                        # check that the balance is up to the amount to be withdrawn
+                        if float(wallet.balance) < float(withdrawal):
+                            return Response(
+                                dict(errors="Insufficient Funds"),
+                                status=status.HTTP_400_BAD_REQUEST)
+
+                        # Else subtract the amount from the balance
+                        new_balance = float(wallet.balance) - float(withdrawal)
+
+                        withdrawal_wallet = {
+                            "balance": new_balance
+                        }
+                        # Update Balance in DB
+                        wallet_serializer = serializers.WalletSerializer(wallet, data=withdrawal_wallet,
+                                                                         partial=True)
+                        if wallet_serializer.is_valid():
+                            wallet_serializer.save()
+
+                            # Save transaction to DB
+                            transaction_data = {
+                                "user_id": request.user.id,
+                                "wallet_id": wallet.id,
+                                "transaction_type": "Withdrawal",
+                                "amount": withdrawal,
+                                "currency": wallet.currency,
+                                "status": "successful"
+                            }
+
+                            transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                            if transaction_serializer.is_valid():
+                                transaction_serializer.save()
+                            else:
+                                return Response(
+                                    dict(transaction_serializer.errors),
+                                    status=status.HTTP_400_BAD_REQUEST)
+
+                            response_data = {
+                                "Message": "Amount Withdrawn successfully",
+                                "Wallet": wallet.currency,
+                                "Balance": new_balance
+                            }
+                            return Response(
+                                response_data,
+                                status=status.HTTP_200_OK
+                            )
+        # If User is a Noob
+        if user_type == 'Noob':
+
+            # For Noob Users with Existing Wallet they are trying to withdraw from.
+            wallet = Wallet.objects.get(user_id=user)
+            if wallet.currency == currency:
+                # check that the balance is up to the amount to be withdrawn
+                if float(wallet.balance) < float(amount):
+                    return Response(
+                        dict(errors="Insufficient Funds"),
+                        status=status.HTTP_400_BAD_REQUEST)
+
+                # subtract the amount from the balance
+                new_balance = float(wallet.balance) - float(amount)
+                withdrawn_wallet = Wallet.objects.get(currency=currency)
+                withdrawal = {
+                    "balance": new_balance
+                }
+                # Update Balance in DB
+                wallet_serializer = serializers.WalletSerializer(withdrawn_wallet, data=withdrawal, partial=True)
+                if wallet_serializer.is_valid():
+                    wallet_serializer.save()
+
+                    # Save transaction to DB
+                    transaction_data = {
+                        "user_id": request.user.id,
+                        "wallet_id": withdrawn_wallet.id,
+                        "transaction_type": "Withdrawal",
+                        "amount": amount,
+                        "currency": currency,
+                        "status": "successful"
+                    }
+
+                    transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                    if transaction_serializer.is_valid():
+                        transaction_serializer.save()
+                    else:
+                        return Response(
+                            dict(transaction_serializer.errors),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+                    response_data = {
+                        "Message": "Amount Withdrawn successfully",
+                        "Wallet": wallet.currency,
+                        "Balance": new_balance
+                    }
+                    return Response(
+                        response_data,
+                        status=status.HTTP_200_OK
+                    )
+                else:
+                    return Response(
+                        dict(wallet_serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST)
+
+            # if currency does not exist as a wallet, convert amount to main currency and withdraw
+            else:
+                wallets = Wallet.objects.filter(user_id=user)
+                for wallet in wallets.all():
+                    if wallet.main:
+                        # get main currency from db
+                        main_curr = wallet.currency
+
+                        # get funding currency
+                        withdrawal_curr = get_currency(currency)
+
+                        # generate conversion string
+                        convert_str = withdrawal_curr + "_" + main_curr
+
+                        # get conversion rate
+                        url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
+                        response = requests.get(url).json()
+                        rate = response[convert_str]
+
+                        # calculate amount to be funded based on conversion rate
+                        withdrawal = rate * float(amount)
+
+                        # check that the balance is up to the amount to be withdrawn
+                        if float(wallet.balance) < float(withdrawal):
+                            return Response(
+                                dict(errors="Insufficient Funds"),
+                                status=status.HTTP_400_BAD_REQUEST)
+
+                        # Else subtract the amount from the balance
+                        new_balance = float(wallet.balance) - float(withdrawal)
+
+                        withdrawal_wallet = {
+                            "balance": new_balance
+                        }
+                        # Update Balance in DB
+                        wallet_serializer = serializers.WalletSerializer(wallet, data=withdrawal_wallet,
+                                                                         partial=True)
+                        if wallet_serializer.is_valid():
+                            wallet_serializer.save()
+
+                            # Save transaction to DB
+                            transaction_data = {
+                                "user_id": request.user.id,
+                                "wallet_id": wallet.id,
+                                "transaction_type": "Withdrawal",
+                                "amount": withdrawal,
+                                "currency": wallet.currency,
+                                "status": "successful"
+                            }
+
+                            transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                            if transaction_serializer.is_valid():
+                                transaction_serializer.save()
+                            else:
+                                return Response(
+                                    dict(transaction_serializer.errors),
+                                    status=status.HTTP_400_BAD_REQUEST)
+
+                            response_data = {
+                                "Message": "Amount Withdrawn successfully",
+                                "Wallet": wallet.currency,
+                                "Balance": new_balance
+                            }
+                            return Response(
+                                response_data,
+                                status=status.HTTP_200_OK
+                            )
+            return Response(
+                "I said I am a NOOB",
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
