@@ -83,8 +83,9 @@ AUTH_USER_MODEL = 'wallet.User'
 
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
-print(DEBUG)
-if DEBUG:
+if not DEBUG:
+    DATABASES = {'default': dj_database_url.config(conn_max_age=60)}
+else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -95,9 +96,6 @@ if DEBUG:
             'PORT': config('PORT'),
         }
     }
-else:
-    DATABASES = {'default': dj_database_url.config(conn_max_age=60)}
-
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators
