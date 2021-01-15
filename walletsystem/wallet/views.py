@@ -10,7 +10,8 @@ from rest_framework import status
 from .models import User, Elite, Noob, Wallet, Transactions
 from . import serializers
 from .lib.lower_strip import strip_and_lower
-from .lib.currency_code import get_currency, get_currency_name
+from .lib.currency_code import get_currency
+from .lib.admin_permissions import IsUserAdmin
 import requests
 
 
@@ -684,3 +685,39 @@ class RegisterAdmin(APIView):
                 return Response(
                     user_serializer.errors,
                     status=status.HTTP_400_BAD_REQUEST)
+
+
+# returns a list of all pending withdrawals
+class PendingWithdrawal(APIView):
+    permission_classes = [IsUserAdmin]
+
+    # Get all transactions that belong to an Account
+    def get(self, request):
+
+        # Get all wallets that belong to the user
+        transactions = Transactions.objects.filter(status="pending")
+        transaction_record = []
+        for transact in transactions.all():
+            transaction_record.append(
+                (
+                 "wallet_id: " + str(transact.wallet_id),
+                 "Currency: " + transact.currency,
+                 "Amount: " + transact.amount,
+                 "Type: " + transact.transaction_type,
+                 "Date: " + transact.created_at.strftime("%m/%d/%Y"),
+                 "Status: " + transact.status
+                 )
+            )
+
+        transaction_info = {
+            "Pending Transactions": transaction_record
+        }
+        return Response(
+            transaction_info,
+            status=status.HTTP_200_OK
+        )
+
+
+# endpoint for admin to approve withdrawal
+class ApproveWithdrawal(APIView):
+    pass
