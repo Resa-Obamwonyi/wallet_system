@@ -83,7 +83,7 @@ AUTH_USER_MODEL = 'wallet.User'
 
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
-
+print(DEBUG)
 if DEBUG:
     DATABASES = {
         'default': {
