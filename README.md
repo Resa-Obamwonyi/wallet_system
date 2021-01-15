@@ -43,7 +43,7 @@ A wallet system for a product used in multiple countries.
 
 ### How to Use and Test this Application
 - Clone the Repository
-- Run `docker-compose --build`
+- Run `docker-compose --build up`
 - To run migrations `python manage.py makemigrations` and `python manage.py migrate`
 - To run tests `python manage.py test`
 
