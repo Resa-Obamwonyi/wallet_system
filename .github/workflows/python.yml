@@ -38,6 +38,7 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
           HOST: ${{ secrets.HOST }}
           PORT: ${{ secrets.PORT }}
+          DEBUG: ${{ secrets.DEBUG }}
         run: python manage.py migrate
       - name: Run tests
         env:
@@ -47,6 +48,7 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
           HOST: ${{ secrets.HOST }}
           PORT: ${{ secrets.PORT }}
+          DEBUG: ${{ secrets.DEBUG }}
         run: python manage.py test
       - name: Shutdown Services
         run: docker-compose down
