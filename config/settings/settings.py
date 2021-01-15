@@ -85,7 +85,6 @@ AUTH_USER_MODEL = 'wallet.User'
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 if DEBUG is False:
     DATABASES = {'default': dj_database_url.config(conn_max_age=60)}
-    print(config("DATABASE_URL"))
 else:
     DATABASES = {
         'default': {

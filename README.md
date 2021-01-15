@@ -43,7 +43,12 @@ A wallet system for a product used in multiple countries.
 
 ### How to Use and Test this Application
 
-### Link to API Documentation
+#### As a User
+- Using the API endpoints Make requests to register a user, add wallet, fund wallet and make withdrawals.
 
+#### As an Admin
+
+### Link to API Documentation
+https://documenter.getpostman.com/view/11737108/TVzVgvQH
 
 ### Comments
