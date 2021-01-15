@@ -75,7 +75,6 @@ class Register(APIView):
                             dict(noob_serializer.errors),
                             status=status.HTTP_400_BAD_REQUEST)
 
-
                 default_wallet = {
                     "user_id": user.id,
                     "currency": valid_currency,
@@ -331,10 +330,10 @@ class FundWallet(APIView):
             fund_curr = get_currency(amount_currency)
 
             # generate conversion string
-            convert_str = fund_curr+"_"+main_curr
+            convert_str = fund_curr + "_" + main_curr
 
             # get conversion rate
-            url = "https://free.currconv.com/api/v7/convert?q="+convert_str+"&compact=ultra&apiKey=066f3d02509dab104f69"
+            url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
             response = requests.get(url).json()
             rate = response[convert_str]
 
@@ -396,7 +395,8 @@ class TransactionView(APIView):
         for transact in transactions.all():
             transaction_record.append(("Currency: " + transact.currency, "Amount: " + transact.amount,
                                        "Type: " + transact.transaction_type,
-                                       "Date: " + transact.created_at.strftime("%m/%d/%Y")))
+                                       "Date: " + transact.created_at.strftime("%m/%d/%Y"),
+                                       "Status: " + transact.status))
 
         # Get user account
         user_account = User.objects.get(id=user)
@@ -563,6 +563,7 @@ class WithdrawWallet(APIView):
 
             # For Noob Users with Existing Wallet they are trying to withdraw from.
             wallet = Wallet.objects.get(user_id=user)
+
             if wallet.currency == currency:
                 # check that the balance is up to the amount to be withdrawn
                 if float(wallet.balance) < float(amount):
@@ -570,39 +571,21 @@ class WithdrawWallet(APIView):
                         dict(errors="Insufficient Funds"),
                         status=status.HTTP_400_BAD_REQUEST)
 
-                # subtract the amount from the balance
-                new_balance = float(wallet.balance) - float(amount)
-                withdrawn_wallet = Wallet.objects.get(currency=currency)
-                withdrawal = {
-                    "balance": new_balance
+                # Save transaction to DB
+                transaction_data = {
+                    "user_id": request.user.id,
+                    "wallet_id": wallet.id,
+                    "transaction_type": "Withdrawal",
+                    "amount": amount,
+                    "currency": currency,
+                    "status": "pending"
                 }
-                # Update Balance in DB
-                wallet_serializer = serializers.WalletSerializer(withdrawn_wallet, data=withdrawal, partial=True)
-                if wallet_serializer.is_valid():
-                    wallet_serializer.save()
 
-                    # Save transaction to DB
-                    transaction_data = {
-                        "user_id": request.user.id,
-                        "wallet_id": withdrawn_wallet.id,
-                        "transaction_type": "Withdrawal",
-                        "amount": amount,
-                        "currency": currency,
-                        "status": "successful"
-                    }
-
-                    transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
-                    if transaction_serializer.is_valid():
-                        transaction_serializer.save()
-                    else:
-                        return Response(
-                            dict(transaction_serializer.errors),
-                            status=status.HTTP_400_BAD_REQUEST)
-
+                transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                if transaction_serializer.is_valid():
+                    transaction_serializer.save()
                     response_data = {
-                        "Message": "Amount Withdrawn successfully",
-                        "Wallet": wallet.currency,
-                        "Balance": new_balance
+                        "Message": "Withdrawal has been sent for Approval."
                     }
                     return Response(
                         response_data,
@@ -610,78 +593,56 @@ class WithdrawWallet(APIView):
                     )
                 else:
                     return Response(
-                        dict(wallet_serializer.errors),
+                        dict(transaction_serializer.errors),
                         status=status.HTTP_400_BAD_REQUEST)
 
-            # if currency does not exist as a wallet, convert amount to main currency and withdraw
+            # if currency does not exist as a wallet, convert amount to main currency and send withdrawal request
             else:
-                wallets = Wallet.objects.filter(user_id=user)
-                for wallet in wallets.all():
-                    if wallet.main:
-                        # get main currency from db
-                        main_curr = wallet.currency
+                # get main currency from db
+                main_curr = wallet.currency
 
-                        # get funding currency
-                        withdrawal_curr = get_currency(currency)
+                # get funding currency
+                withdrawal_curr = get_currency(currency)
 
-                        # generate conversion string
-                        convert_str = withdrawal_curr + "_" + main_curr
+                # generate conversion string
+                convert_str = withdrawal_curr + "_" + main_curr
 
-                        # get conversion rate
-                        url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
-                        response = requests.get(url).json()
-                        rate = response[convert_str]
+                # get conversion rate
+                url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
+                response = requests.get(url).json()
+                rate = response[convert_str]
 
-                        # calculate amount to be funded based on conversion rate
-                        withdrawal = rate * float(amount)
+                # calculate amount to be funded based on conversion rate
+                withdrawal = rate * float(amount)
 
-                        # check that the balance is up to the amount to be withdrawn
-                        if float(wallet.balance) < float(withdrawal):
-                            return Response(
-                                dict(errors="Insufficient Funds"),
-                                status=status.HTTP_400_BAD_REQUEST)
+                # check that the balance is up to the amount to be withdrawn
+                if float(wallet.balance) < float(withdrawal):
+                    return Response(
+                        dict(errors="Insufficient Funds"),
+                        status=status.HTTP_400_BAD_REQUEST)
 
-                        # Else subtract the amount from the balance
-                        new_balance = float(wallet.balance) - float(withdrawal)
+                # Save transaction to DB
+                transaction_data = {
+                    "user_id": request.user.id,
+                    "wallet_id": wallet.id,
+                    "transaction_type": "Withdrawal",
+                    "amount": amount,
+                    "currency": currency,
+                    "status": "pending"
+                }
 
-                        withdrawal_wallet = {
-                            "balance": new_balance
-                        }
-                        # Update Balance in DB
-                        wallet_serializer = serializers.WalletSerializer(wallet, data=withdrawal_wallet,
-                                                                         partial=True)
-                        if wallet_serializer.is_valid():
-                            wallet_serializer.save()
-
-                            # Save transaction to DB
-                            transaction_data = {
-                                "user_id": request.user.id,
-                                "wallet_id": wallet.id,
-                                "transaction_type": "Withdrawal",
-                                "amount": withdrawal,
-                                "currency": wallet.currency,
-                                "status": "successful"
-                            }
-
-                            transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
-                            if transaction_serializer.is_valid():
-                                transaction_serializer.save()
-                            else:
-                                return Response(
-                                    dict(transaction_serializer.errors),
-                                    status=status.HTTP_400_BAD_REQUEST)
-
-                            response_data = {
-                                "Message": "Amount Withdrawn successfully",
-                                "Wallet": wallet.currency,
-                                "Balance": new_balance
-                            }
-                            return Response(
-                                response_data,
-                                status=status.HTTP_200_OK
-                            )
-            return Response(
-                "I said I am a NOOB",
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                transaction_serializer = serializers.TransactionSerializer(data=transaction_data)
+                if transaction_serializer.is_valid():
+                    transaction_serializer.save()
+                    response_data = {
+                        "Message": "Withdrawal has been sent for Approval."
+                    }
+                    return Response(
+                        response_data,
+                        status=status.HTTP_200_OK
+                    )
+                else:
+                    return Response(
+                        dict(transaction_serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST)
 
