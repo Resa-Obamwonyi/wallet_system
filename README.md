@@ -47,6 +47,15 @@ A wallet system for a product used in multiple countries.
 - Using the API endpoints Make requests to register a user, add wallet, fund wallet and make withdrawals.
 
 #### As an Admin
+- Hit the login endpoint using the following admin credentials
+
+```
+email: admin@walletsystem.com
+password: 01234Admin
+```
+- Hit the promote user endpoint to promote a Noob to Elite.
+- Hit the demote user endpoint to demote an Elite.
+- Hit the approve transactions endpoint to approve withdrawal transactions for Noob users.
 
 ### Link to API Documentation
 https://documenter.getpostman.com/view/11737108/TVzVgvQH
