@@ -42,6 +42,10 @@ A wallet system for a product used in multiple countries.
 
 
 ### How to Use and Test this Application
+- Clone the Repository
+- Run `docker-compose --build`
+- To run migrations `python manage.py makemigrations` and `python manage.py migrate`
+- To run tests `python manage.py test`
 
 #### As a User
 - Using the API endpoints Make requests to register a user, add wallet, fund wallet and make withdrawals.

@@ -14,7 +14,7 @@ from .lib.currency_code import get_currency, get_currency_name
 import requests
 
 
-# Register View
+# Register User View
 class Register(APIView):
     # authentication_classes = [authentication.TokenAuthentication]
     permission_classes = [AllowAny]
@@ -646,3 +646,41 @@ class WithdrawWallet(APIView):
                         dict(transaction_serializer.errors),
                         status=status.HTTP_400_BAD_REQUEST)
 
+
+# Register Admin View
+class RegisterAdmin(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        with transaction.atomic():
+
+            if not (request.data.get('firstname', '') or len(request.data.get('firstname', '') > 3)):
+                return Response(
+                    dict(error='Invalid Firstname, Firstname must be at least three Characters long.'),
+                    status=status.HTTP_400_BAD_REQUEST)
+
+            if not (request.data.get('lastname', '') or len(request.data.get('lastname', '') > 3)):
+                return Response(
+                    dict(error='Invalid Lastname, Lastname must be at least three Characters long.'),
+                    status=status.HTTP_400_BAD_REQUEST)
+
+            user_data = {
+                "firstname": request.data["firstname"],
+                "lastname": request.data["lastname"],
+                "email": request.data["email"],
+                "password": request.data["password"],
+                "is_admin": True
+            }
+            user_serializer = serializers.UserSerializer(data=user_data)
+
+            if user_serializer.is_valid():
+                user = user_serializer.save()
+                user.set_password(request.data["password"])
+
+                return Response(
+                    dict(success="Admin Created Successfully"),
+                    status=status.HTTP_201_CREATED)
+            else:
+                return Response(
+                    user_serializer.errors,
+                    status=status.HTTP_400_BAD_REQUEST)
