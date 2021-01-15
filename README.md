@@ -54,8 +54,8 @@ A wallet system for a product used in multiple countries.
 - Hit the login endpoint using the following admin credentials
 
 ```
-email: admin@walletsystem.com
-password: 01234Admin
+email= testadmin@walletsystem.com
+password= 01234Admin
 ```
 - Hit the promote user endpoint to promote a Noob to Elite.
 - Hit the demote user endpoint to demote an Elite.

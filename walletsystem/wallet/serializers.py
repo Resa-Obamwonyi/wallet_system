@@ -28,7 +28,8 @@ class UserSerializer(serializers.ModelSerializer):
             'firstname': data['firstname'],
             'lastname': data['lastname'],
             'email': data['email'],
-            'password': data['password']
+            'password': data['password'],
+            "is_admin": data.get("is_admin", False)
         }
 
         return saved_data
