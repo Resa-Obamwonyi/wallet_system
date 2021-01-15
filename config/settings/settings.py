@@ -84,18 +84,19 @@ AUTH_USER_MODEL = 'wallet.User'
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': config('NAME'),
-#         'USER': config('USER'),
-#         'PASSWORD': config('PASSWORD'),
-#         'HOST': config('HOST'),
-#         'PORT': config('PORT'),
-#     }
-# }
-
-DATABASES = {'default': dj_database_url.config(conn_max_age=60)}
+if DEBUG:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('NAME'),
+            'USER': config('USER'),
+            'PASSWORD': config('PASSWORD'),
+            'HOST': config('HOST'),
+            'PORT': config('PORT'),
+        }
+    }
+else:
+    DATABASES = {'default': dj_database_url.config(conn_max_age=60)}
 
 
 # Password validation
