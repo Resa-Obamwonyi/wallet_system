@@ -57,6 +57,7 @@ A wallet system for a product used in multiple countries.
 email= testadmin@walletsystem.com
 password= 01234Admin
 ```
+- Or hit the register admin endpoint to register an admin.
 - Hit the promote user endpoint to promote a Noob to Elite.
 - Hit the demote user endpoint to demote an Elite.
 - Hit the approve transactions endpoint to approve withdrawal transactions for Noob users.
@@ -65,6 +66,6 @@ password= 01234Admin
 https://documenter.getpostman.com/view/11737108/TVzVgvQH
 
 ### Link to Heroku
-https://wallets-system.herokuapp.com/
+https://wallets-system.herokuapp.com/api
 
 ### Comments
