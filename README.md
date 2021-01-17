@@ -45,8 +45,9 @@ A wallet system for a product used in multiple countries.
 - Clone the Repository
 - (You would need some environment variables, that would be in a .env file in the root directory. Please contact me for them.)
 - Run `docker-compose up --build`
-- run migrations `python manage.py makemigrations` and `python manage.py migrate`
-- run tests `python manage.py test`
+- run migrations `docker-compose exec web python manage.py makemigrations`
+- run `docker-compose exec web python manage.py migrate`
+- run tests `docker-compose exec web python manage.py test`
 
 #### As a User
 - Using the API endpoints Make requests to register a user, add wallet, fund wallet and make withdrawals.
