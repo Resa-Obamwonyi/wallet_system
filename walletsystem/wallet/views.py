@@ -229,7 +229,7 @@ class FundWallet(APIView):
                 if wallet.currency == amount_currency:
                     # sum the balance and the new amount
                     new_balance = float(wallet.balance) + float(amount)
-                    funded_wallet = Wallet.objects.get(currency=amount_currency)
+                    funded_wallet = wallet
                     funding = {
                         "balance": new_balance
                     }
@@ -857,36 +857,33 @@ class DemoteUser(APIView):
                     status=status.HTTP_400_BAD_REQUEST)
 
             # get instance of user wallet
-            wallets = Wallet.objects.filter(user_id=user_id.id)
+            wallets = Wallet.objects.filter(user_id=user_id)
             converted_money = 0
             for wallet in wallets.all():
                 if not wallet.main:
                     # get main currency from db
                     main_curr = elite_user.main_currency
-
                     # get the currency
                     fund_curr = wallet.currency
-
                     # generate conversion string
                     convert_str = fund_curr + "_" + main_curr
-
                     # get conversion rate
                     url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
                     response = requests.get(url).json()
                     rate = response[convert_str]
 
                     # calculate amount to be funded based on conversion rate
-                    funding = rate * wallet.balance
+                    funding = rate * float(wallet.balance)
 
                     # sum the balance and the new amount
-            converted_money += funding
+                    converted_money += funding
 
-            print(converted_money)
+                    # Delete the wallet data from wallets table
+                    Wallet.objects.filter(id=wallet.id).delete()
 
             # Move all deposits in multiple wallet into main wallet
             # sum the balance and the new amount
             new_balance = float(wallet.balance) + converted_money
-
             new_wallet_balance = {
                 "balance": new_balance
             }
@@ -903,6 +900,7 @@ class DemoteUser(APIView):
 
             # Delete user data from Elite table
             Elite.objects.filter(user_id=user_id).delete()
+
             success = {
                 "message": "User has been Demoted to Noob"
             }
