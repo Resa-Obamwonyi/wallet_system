@@ -121,8 +121,13 @@ class Login(APIView):
                 return Response(
                     dict(invalid_credential='Please provide both email and password'),
                     status=status.HTTP_400_BAD_REQUEST)
+            try:
+                db_user = User.objects.get(email=email)
+            except Exception:
+                return Response(
+                    dict(invalid_credential='This user does not exist in our records'),
+                    status=status.HTTP_400_BAD_REQUEST)
 
-            db_user = User.objects.get(email=email)
             user = check_password(password, db_user.password)
 
             if not user:
