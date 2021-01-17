@@ -43,21 +43,24 @@ A wallet system for a product used in multiple countries.
 
 ### How to Use and Test this Application
 - Clone the Repository
-- Run `docker-compose --build up`
-- To run migrations `python manage.py makemigrations` and `python manage.py migrate`
-- To run tests `python manage.py test`
+- (You would need some environment variables, that would be in a .env file in the root directory. Please contact me for them.)
+- Run `docker-compose up --build`
+- run migrations `python manage.py makemigrations` and `python manage.py migrate`
+- run tests `python manage.py test`
 
 #### As a User
 - Using the API endpoints Make requests to register a user, add wallet, fund wallet and make withdrawals.
 
-#### As an Admin
+#### As an Admin using the hosted API
 - Hit the login endpoint using the following admin credentials
 
 ```
 email= testadmin@walletsystem.com
 password= 01234Admin
 ```
+
 - Or hit the register admin endpoint to register an admin.
+- Login with admin email and password
 - Hit the promote user endpoint to promote a Noob to Elite.
 - Hit the demote user endpoint to demote an Elite.
 - Hit the approve transactions endpoint to approve withdrawal transactions for Noob users.
