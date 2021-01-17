@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import Register, Login, Wallets, FundWallet, TransactionView, WithdrawWallet, RegisterAdmin,\
-    PendingWithdrawal, ApproveWithdrawal
+    PendingWithdrawal, ApproveWithdrawal, PromoteUser, DemoteUser
 
 
 app_name = "wallet_app"
@@ -16,5 +16,7 @@ urlpatterns = [
     path('register-admin', RegisterAdmin.as_view()),
     path('pending', PendingWithdrawal.as_view()),
     path('approve-withdrawal', ApproveWithdrawal.as_view()),
+    path('promote-user', PromoteUser.as_view()),
+    path('demote-user', DemoteUser.as_view()),
 ]
 

@@ -17,7 +17,6 @@ import requests
 
 # Register User View
 class Register(APIView):
-    # authentication_classes = [authentication.TokenAuthentication]
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -786,5 +785,128 @@ class ApproveWithdrawal(APIView):
 
             return Response(
                 response_data,
+                status=status.HTTP_200_OK
+            )
+
+
+# Endpoint to promote a user from Noob to Elite
+class PromoteUser(APIView):
+    permission_classes = [IsUserAdmin]
+
+    def post(self, request):
+        with transaction.atomic():
+
+            # ID of the user to promote
+            user_id = request.data["user_id"]
+
+            # Get user data from the Noob table
+            noob_user = Noob.objects.get(user_id=user_id)
+
+            # insert user data into Elite table
+            elite_user_data = {
+                "user_id": noob_user.user_id.id,
+                "wallet_type": "Elite",
+                "main_currency": noob_user.main_currency
+            }
+
+            elite_serializer = serializers.EliteSerializer(data=elite_user_data)
+            if elite_serializer.is_valid():
+                elite_serializer.save()
+            else:
+                return Response(
+                    dict(elite_serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST)
+
+            # Delete user data from Noob table
+            Noob.objects.filter(user_id=user_id).delete()
+            success = {
+                "message": "User has been Promoted to Elite"
+            }
+            return Response(
+                success,
+                status=status.HTTP_200_OK
+            )
+
+
+# Endpoint to demote a user from Elite to Noob
+class DemoteUser(APIView):
+    permission_classes = [IsUserAdmin]
+
+    def post(self, request):
+        with transaction.atomic():
+
+            # ID of the user to promote
+            user_id = request.data["user_id"]
+
+            # Get user data from the Elite table
+            elite_user = Elite.objects.get(user_id=user_id)
+
+            # insert user data into Noob table
+            noob_user_data = {
+                "user_id": elite_user.user_id.id,
+                "wallet_type": "Noob",
+                "main_currency": elite_user.main_currency
+            }
+
+            noob_serializer = serializers.NoobSerializer(data=noob_user_data)
+            if noob_serializer.is_valid():
+                noob_serializer.save()
+            else:
+                return Response(
+                    dict(noob_serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST)
+
+            # get instance of user wallet
+            wallets = Wallet.objects.filter(user_id=user_id.id)
+            converted_money = 0
+            for wallet in wallets.all():
+                if not wallet.main:
+                    # get main currency from db
+                    main_curr = elite_user.main_currency
+
+                    # get the currency
+                    fund_curr = wallet.currency
+
+                    # generate conversion string
+                    convert_str = fund_curr + "_" + main_curr
+
+                    # get conversion rate
+                    url = "https://free.currconv.com/api/v7/convert?q=" + convert_str + "&compact=ultra&apiKey=066f3d02509dab104f69"
+                    response = requests.get(url).json()
+                    rate = response[convert_str]
+
+                    # calculate amount to be funded based on conversion rate
+                    funding = rate * wallet.balance
+
+                    # sum the balance and the new amount
+            converted_money += funding
+
+            print(converted_money)
+
+            # Move all deposits in multiple wallet into main wallet
+            # sum the balance and the new amount
+            new_balance = float(wallet.balance) + converted_money
+
+            new_wallet_balance = {
+                "balance": new_balance
+            }
+
+            # Update Balance in DB
+            wallet_serializer = serializers.WalletSerializer(wallet, data=new_wallet_balance, partial=True)
+            if wallet_serializer.is_valid():
+                wallet_serializer.save()
+            else:
+                return  Response(
+                    wallet_serializer.errors,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Delete user data from Elite table
+            Elite.objects.filter(user_id=user_id).delete()
+            success = {
+                "message": "User has been Demoted to Noob"
+            }
+            return Response(
+                success,
                 status=status.HTTP_200_OK
             )
