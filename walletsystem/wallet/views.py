@@ -874,37 +874,41 @@ class DemoteUser(APIView):
 
                     # calculate amount to be funded based on conversion rate
                     funding = rate * float(wallet.balance)
-
                     # sum the balance and the new amount
                     converted_money += funding
 
                     # Delete the wallet data from wallets table
                     Wallet.objects.filter(id=wallet.id).delete()
 
-            # Move all deposits in multiple wallet into main wallet
-            # sum the balance and the new amount
-            new_balance = float(wallet.balance) + converted_money
-            new_wallet_balance = {
-                "balance": new_balance
-            }
+            # get main wallet
+            remaining_wallet = Wallet.objects.filter(user_id=user_id)
+            for r_wallet in remaining_wallet:
+                if r_wallet.main:
+                    # Move all deposits in multiple wallet into main wallet
+                    # sum the balance and the new amount
+                    new_balance = float(r_wallet.balance) + converted_money
 
-            # Update Balance in DB
-            wallet_serializer = serializers.WalletSerializer(wallet, data=new_wallet_balance, partial=True)
-            if wallet_serializer.is_valid():
-                wallet_serializer.save()
-            else:
-                return  Response(
-                    wallet_serializer.errors,
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                    new_wallet_balance = {
+                        "balance": new_balance
+                    }
 
-            # Delete user data from Elite table
-            Elite.objects.filter(user_id=user_id).delete()
+                    # Update Balance in DB
+                    wallet_serializer = serializers.WalletSerializer(r_wallet, data=new_wallet_balance, partial=True)
+                    if wallet_serializer.is_valid():
+                        wallet_serializer.save()
+                    else:
+                        return  Response(
+                            wallet_serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
 
-            success = {
-                "message": "User has been Demoted to Noob"
-            }
-            return Response(
-                success,
-                status=status.HTTP_200_OK
-            )
+                    # Delete user data from Elite table
+                    Elite.objects.filter(user_id=user_id).delete()
+
+                    success = {
+                        "message": "User has been Demoted to Noob"
+                    }
+                    return Response(
+                        success,
+                        status=status.HTTP_200_OK
+                    )
