@@ -43,7 +43,6 @@ A wallet system for a product used in multiple countries.
 
 ### How to Use and Test this Application
 - Clone the Repository
-- (You would need some environment variables, that would be in a .env file in the root directory. Please contact me for them.)
 - Run `docker-compose up --build`
 - run migrations `docker-compose exec web python manage.py makemigrations`
 - run `docker-compose exec web python manage.py migrate`
